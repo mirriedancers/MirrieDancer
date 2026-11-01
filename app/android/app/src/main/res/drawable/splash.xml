@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launch screen: the night sky colour with the aurora mark in the middle -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/ic_launcher_background" />
+    <item android:width="160dp" android:height="160dp" android:gravity="center" android:drawable="@drawable/splash_logo" />
+</layer-list>

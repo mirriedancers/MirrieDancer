@@ -12,6 +12,11 @@
 <title>Mirrie Dancers</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Live northern lights chances for dark-sky spots across Scotland.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mirrie Dancers">
 <!-- the hero still, fetched early (same wide/tall split as the footage picker) -->
 <link rel="preload" as="image" href="media/hero-wide.jpg" media="(min-aspect-ratio: 10/11)">
 <link rel="preload" as="image" href="media/hero-tall.jpg" media="(max-aspect-ratio: 10/11)">
@@ -315,6 +320,8 @@ select {
 .links li { display: grid; gap: 2px; }
 .links span { color: var(--mist); font-size: 14px; }
 .status { margin-top: 10px; font: 400 12.5px/1.5 var(--mono); color: var(--mist); }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.getapp { margin: 16px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 14px; color: var(--mist); }
 
 footer { border-top: 1px solid var(--rule); }
 footer .wrap { padding-block: 28px 44px; color: var(--dim); font-size: 13px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
@@ -337,6 +344,7 @@ footer p { margin: 0; max-width: 90ch; }
       <i class="dot" id="dot"></i><span id="liveText">Reading the sky…</span>
       <button class="btn" id="refresh" type="button" aria-label="Refresh live data">Refresh</button>
       <button class="btn" id="share" type="button" hidden>Share</button>
+      <a class="btn solid" id="getAppTop" href="https://github.com/mirriedancers/MirrieDancer/releases/latest/download/mirrie-dancers.apk" hidden>Get the app</a>
     </div>
   </div>
 </header>
@@ -512,6 +520,8 @@ footer p { margin: 0; max-width: 90ch; }
             <p id="alertCopy">Alert me when the chance at my best spot passes <b>35%</b>. Works while this page stays open: it checks every few minutes, then sends a notification or plays a chime.</p>
           </div>
           <div class="status" id="alertStatus"></div>
+          <p class="getapp" id="getApp" hidden><a class="btn solid" href="https://github.com/mirriedancers/MirrieDancer/releases/latest/download/mirrie-dancers.apk">Get the Android app</a> Alerts even with the app closed. Free, no store or sign-up.</p>
+          <p class="getapp" id="iosTip" hidden>On iPhone, tap Share then <b>Add to Home Screen</b> to keep Mirrie Dancers one tap away.</p>
         </div>
         <div>
           <ul class="links">
@@ -1850,8 +1860,33 @@ function chime() {
     [523.25, 659.25, 783.99].forEach((f, i) => { const o = audio.createOscillator(), g = audio.createGain(); o.type = "sine"; o.frequency.value = f; g.gain.setValueAtTime(0, audio.currentTime + i * 0.18); g.gain.linearRampToValueAtTime(0.18, audio.currentTime + i * 0.18 + 0.03); g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + i * 0.18 + 1.2); o.connect(g).connect(audio.destination); o.start(audio.currentTime + i * 0.18); o.stop(audio.currentTime + i * 0.18 + 1.3); });
   } catch (e) { /* no audio here */ }
 }
+// In the Android app, alerts come from a background check (app/www/runners/aurora.js) that runs with the app closed.
+const RUNNER = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() ? window.Capacitor.Plugins.BackgroundRunner : null;
+let runnerKey = "";
+function syncRunner(force) { // hand the background check the current place and switch, when they change
+  const at = S.here || S.townObj;
+  if (!RUNNER || !at) return;
+  const details = { on: alertOn, lat: at.lat, lon: at.lon, place: S.here ? S.here.near || S.here.city : at.name, threshold: ALERT_AT, tz: -new Date().getTimezoneOffset() };
+  const key = JSON.stringify(details);
+  if (!force && key === runnerKey) return;
+  runnerKey = key;
+  RUNNER.dispatchEvent({ label: "io.github.mirriedancers.check", event: "configure", details }).catch(() => { runnerKey = ""; });
+}
+if (RUNNER) $("alertCopy").innerHTML = "Alert me when the chance near me passes <b>35%</b>. Works with the app closed: your phone checks about every half hour.";
+else { const ios = /iPhone|iPad|iPod/.test(navigator.userAgent); $("getApp").hidden = ios; $("iosTip").hidden = !ios; $("getAppTop").hidden = !/Android/i.test(navigator.userAgent); }
 $("alertToggle").addEventListener("click", async () => {
   alertOn = !alertOn; store.set("alert", alertOn); paintToggle();
+  if (RUNNER) {
+    if (alertOn) {
+      let ok = false;
+      try { ok = (await RUNNER.requestPermissions({ apis: ["notifications"] })).notifications === "granted"; } catch (e) { /* treated as blocked */ }
+      if (!ok) { alertOn = false; store.set("alert", false); paintToggle(); $("alertStatus").textContent = "Notifications are off for Mirrie Dancers. Allow them in your phone’s settings, then try again."; return; }
+      RUNNER.dispatchEvent({ label: "io.github.mirriedancers.check", event: "testAlert", details: {} }).catch(() => {});
+    }
+    syncRunner(true);
+    $("alertStatus").textContent = alertOn ? "On. You’ll get a notification when the chance near you passes 35%, even with the app closed. (We just sent a test one.)" : "Off.";
+    return;
+  }
   if (alertOn) {
     chime();
     let perm = "unsupported";
@@ -1862,6 +1897,7 @@ $("alertToggle").addEventListener("click", async () => {
 });
 function checkAlert() {
   if (!alertOn || !S.ranked.length) return;
+  if (RUNNER) return syncRunner(); // the app's background check does the alerting
   const top = primary(), p = Math.max(top.nowH.p, top.best.p);
   if (p >= ALERT_AT && Date.now() - lastAlerted > 2 * HOUR) {
     lastAlerted = Date.now();
@@ -1873,7 +1909,7 @@ function checkAlert() {
   } else if (p < ALERT_AT) { document.title = "Mirrie Dancers"; }
 }
 paintToggle();
-if (alertOn) $("alertStatus").textContent = "On. Checking every few minutes while this page is open.";
+if (alertOn) $("alertStatus").textContent = RUNNER ? "On. Your phone checks about every half hour, even with the app closed." : "On. Checking every few minutes while this page is open.";
 
 /* ---------- map: hover for details, click to jump to the list ---------- */
 let hoverId = null, pinned = null, lastPointer = "mouse";

@@ -1,0 +1,19 @@
+{
+  "name": "mirrie-dancers-app",
+  "private": true,
+  "description": "Android app shell for the Mirrie Dancers site, with background aurora alerts",
+  "scripts": {
+    "sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/background-runner": "3.0.0",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/local-notifications": "8.3.1",
+    "@capacitor/splash-screen": "8.0.2",
+    "@capacitor/status-bar": "8.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}

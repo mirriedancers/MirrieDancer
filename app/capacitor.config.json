@@ -1,0 +1,32 @@
+{
+  "appId": "io.github.mirriedancers",
+  "appName": "Mirrie Dancers",
+  "webDir": "www",
+  "server": {
+    "url": "https://mirriedancers.github.io/MirrieDancer/",
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "backgroundColor": "#060a13"
+  },
+  "plugins": {
+    "BackgroundRunner": {
+      "label": "io.github.mirriedancers.check",
+      "src": "runners/aurora.js",
+      "event": "checkAurora",
+      "repeat": true,
+      "interval": 30,
+      "autoStart": true
+    },
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "backgroundColor": "#060a13",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "backgroundColor": "#060a13",
+      "style": "DARK",
+      "overlaysWebView": false
+    }
+  }
+}

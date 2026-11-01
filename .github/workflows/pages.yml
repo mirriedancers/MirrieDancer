@@ -46,7 +46,8 @@ jobs:
         run: |
           node scripts/snapshot.mjs --self-test
           mkdir -p _site/data
-          cp index.html _site/
+          cp index.html manifest.webmanifest _site/
+          cp -r icons _site/icons
           if [ -d media ]; then cp -r media _site/media; fi
           node scripts/snapshot.mjs _site/data shape-problems.txt
       - uses: actions/configure-pages@v5
