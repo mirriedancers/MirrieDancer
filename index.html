@@ -1861,7 +1861,11 @@ function chime() {
   } catch (e) { /* no audio here */ }
 }
 // In the Android app, alerts come from a background check (app/www/runners/aurora.js) that runs with the app closed.
-const RUNNER = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() ? window.Capacitor.Plugins.BackgroundRunner : null;
+// The live site doesn't load Capacitor's JS library, so Capacitor.Plugins stays empty: call the plugin through the bridge.
+const CAP = window.Capacitor, RUNNER = CAP && CAP.isNativePlatform && CAP.isNativePlatform() && CAP.nativePromise ? {
+  requestPermissions: (o) => CAP.nativePromise("CapacitorBackgroundRunner", "requestPermissions", o),
+  dispatchEvent: (o) => CAP.nativePromise("CapacitorBackgroundRunner", "dispatchEvent", o)
+} : null;
 let runnerKey = "";
 function syncRunner(force) { // hand the background check the current place and switch, when they change
   const at = S.here || S.townObj;
@@ -1912,6 +1916,12 @@ function checkAlert() {
 }
 paintToggle();
 if (alertOn) $("alertStatus").textContent = RUNNER ? "On. Your phone checks about every half hour, even with the app closed." : "On. Checking every few minutes while this page is open.";
+// alerts switched on before the app could ask (or permission was taken away since): ask once, or switch them off
+if (RUNNER && alertOn) RUNNER.requestPermissions({ apis: ["notifications"] }).then((r) => {
+  if (r.notifications === "granted") return;
+  alertOn = false; store.set("alert", false); paintToggle(); syncRunner(true);
+  $("alertStatus").textContent = "Off: notifications aren’t allowed for Mirrie Dancers. Turn the switch on to ask again.";
+}).catch(() => {});
 
 /* ---------- map: hover for details, click to jump to the list ---------- */
 let hoverId = null, pinned = null, lastPointer = "mouse";
