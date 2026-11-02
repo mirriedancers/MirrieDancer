@@ -1866,13 +1866,15 @@ let runnerKey = "";
 function syncRunner(force) { // hand the background check the current place and switch, when they change
   const at = S.here || S.townObj;
   if (!RUNNER || !at) return;
-  const details = { on: alertOn, lat: at.lat, lon: at.lon, place: S.here ? S.here.near || S.here.city : at.name, threshold: ALERT_AT, tz: -new Date().getTimezoneOffset() };
+  // the 8 nearest dark-sky spots within 100 km, so alerts can say where to go
+  const spots = SPOTS.concat(WORLD_SPOTS).map(p => ({ name: p.name, lat: p.lat, lon: p.lon, sky: p.sky, km: Math.round(km(at, p)) })).filter(p => p.km <= 100).sort((a, b) => a.km - b.km).slice(0, 8);
+  const details = { on: alertOn, lat: at.lat, lon: at.lon, place: S.here ? S.here.near || S.here.city : at.name, tz: -new Date().getTimezoneOffset(), spots };
   const key = JSON.stringify(details);
   if (!force && key === runnerKey) return;
   runnerKey = key;
   RUNNER.dispatchEvent({ label: "io.github.mirriedancers.check", event: "configure", details }).catch(() => { runnerKey = ""; });
 }
-if (RUNNER) $("alertCopy").innerHTML = "Alert me when the chance near me passes <b>35%</b>. Works with the app closed: your phone checks about every half hour.";
+if (RUNNER) $("alertCopy").innerHTML = "Alert me, even with the app closed: a heads-up when tonight’s chance is <b>25%+ within 100 km</b>, a shout when it’s <b>50%+ within 50 km</b>, and a big one when it’s <b>right above me</b>. One notification a night at most per level, never in daylight.";
 else { const ios = /iPhone|iPad|iPod/.test(navigator.userAgent); $("getApp").hidden = ios; $("iosTip").hidden = !ios; $("getAppTop").hidden = !/Android/i.test(navigator.userAgent); }
 $("alertToggle").addEventListener("click", async () => {
   alertOn = !alertOn; store.set("alert", alertOn); paintToggle();
@@ -1884,7 +1886,7 @@ $("alertToggle").addEventListener("click", async () => {
       RUNNER.dispatchEvent({ label: "io.github.mirriedancers.check", event: "testAlert", details: {} }).catch(() => {});
     }
     syncRunner(true);
-    $("alertStatus").textContent = alertOn ? "On. You’ll get a notification when the chance near you passes 35%, even with the app closed. (We just sent a test one.)" : "Off.";
+    $("alertStatus").textContent = alertOn ? "On. Your phone checks about every half hour, even with the app closed. (We just sent a test one.)" : "Off.";
     return;
   }
   if (alertOn) {
